@@ -65,9 +65,12 @@
       [
         "expo-task-manager",
         {
-          "backgroundModes": ["location"]
+          "backgroundModes": [
+            "location"
+          ]
         }
-      ]
+      ],
+      "sentry-expo"
     ]
   }
 }
