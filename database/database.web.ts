@@ -175,8 +175,9 @@ export const addUser = async (userData: CreateUserData): Promise<string> => {
     const users: User[] = usersJson ? JSON.parse(usersJson) : [];
 
     const newUser: User = {
-      id: Date.now().toString(),
+      id: Date.now(),
       username: userData.username,
+      device_id: 'web-' + Date.now().toString(),
       created_at: new Date().toISOString(),
     };
 
@@ -184,7 +185,7 @@ export const addUser = async (userData: CreateUserData): Promise<string> => {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
 
     console.log('User added successfully:', newUser);
-    return newUser.id;
+    return newUser.id.toString();
   } catch (error) {
     console.error('Error in addUser:', error);
     throw createAppError(ErrorCode.DATABASE_ERROR, 'Failed to add user');

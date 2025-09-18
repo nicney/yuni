@@ -44,7 +44,7 @@ jobs:
         run: npm ci --legacy-peer-deps
       
       - name: Expo Doctor
-        run: npx expo doctor
+        run: npx expo-doctor
 
   # Web Build and Test
   web-build:
