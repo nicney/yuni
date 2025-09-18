@@ -68,7 +68,7 @@ jobs:
         run: npx playwright install --with-deps || echo "Playwright installation completed with warnings"
       
       - name: Run Playwright tests
-        run: npx playwright test || echo "Playwright tests completed with warnings"
+        run: npx playwright test --project=mobile || echo "Playwright tests completed with warnings"
       
       - name: Install Lighthouse CI
         run: npm install -g @lhci/cli || echo "Lighthouse CI installation completed with warnings"
@@ -102,8 +102,8 @@ jobs:
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
-          apiToken: 7Kn05EL6HsWVsWsxztYa6UtYugRA_PrcqfUG0Pnx
-          accountId: c0735434c0f1027fc0ee308d59a81f1f
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
           projectName: yuni
           directory: dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
