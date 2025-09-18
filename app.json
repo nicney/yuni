@@ -1,0 +1,73 @@
+{
+  "expo": {
+    "name": "Yuni",
+    "slug": "Yuni",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "แอพนี้ต้องการเข้าถึงตำแหน่งของคุณเพื่อแสดงโพสต์ของคนใกล้เคียง",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "แอพนี้ต้องการเข้าถึงตำแหน่งของคุณเพื่อแสดงโพสต์ของคนใกล้เคียง",
+        "NSCameraUsageDescription": "แอพนี้ต้องการเข้าถึงกล้องเพื่อถ่ายรูปโพสต์",
+        "NSPhotoLibraryUsageDescription": "แอพนี้ต้องการเข้าถึงคลังรูปภาพเพื่อเลือกรูปโพสต์"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "scheme": "yuni",
+    "experiments": {
+      "typedRoutes": true
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "แอพนี้ต้องการเข้าถึงตำแหน่งของคุณเพื่อแสดงโพสต์ของคนใกล้เคียง",
+          "locationAlwaysPermission": "แอพนี้ต้องการเข้าถึงตำแหน่งของคุณเพื่อแสดงโพสต์ของคนใกล้เคียง",
+          "locationWhenInUsePermission": "แอพนี้ต้องการเข้าถึงตำแหน่งของคุณเพื่อแสดงโพสต์ของคนใกล้เคียง",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "แอพนี้ต้องการเข้าถึงคลังรูปภาพเพื่อเลือกรูปโพสต์",
+          "cameraPermission": "แอพนี้ต้องการเข้าถึงกล้องเพื่อถ่ายรูปโพสต์"
+        }
+      ],
+      [
+        "expo-task-manager",
+        {
+          "backgroundModes": ["location"]
+        }
+      ]
+    ]
+  }
+}
