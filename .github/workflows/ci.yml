@@ -80,7 +80,7 @@ jobs:
 
   # Deploy to Cloudflare Pages (only on main branch)
   deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: false  # Disable GitHub Actions deployment
     needs: [type-check, expo-doctor, web-build]
     runs-on: ubuntu-latest
     continue-on-error: true
