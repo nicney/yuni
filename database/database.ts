@@ -162,6 +162,41 @@ export const getPostsInRadius = async (
   radiusMeters: number = 100
 ): Promise<any[]> => {
   try {
+    // Use Firebase for mobile
+    if (!isWeb && firebaseDb) {
+      const postsRef = ref(firebaseDb, 'posts');
+      const snapshot = await get(postsRef);
+      
+      if (!snapshot.exists()) {
+        console.log('No posts found in Firebase from mobile');
+        return [];
+      }
+
+      const postsData = snapshot.val();
+      const posts: any[] = Object.values(postsData);
+      
+      const now = new Date();
+      const validPosts = posts.filter(post => {
+        const expiresAt = new Date(post.expires_at);
+        return expiresAt > now;
+      });
+
+      // กรองโพสต์ที่อยู่ในรัศมี
+      const nearbyPosts = validPosts.filter((post: any) => {
+        const distance = calculateDistance(
+          latitude,
+          longitude,
+          post.latitude,
+          post.longitude
+        );
+        return distance <= radiusMeters;
+      });
+
+      console.log(`Found ${nearbyPosts.length} posts within ${radiusMeters}m radius from Firebase (mobile)`);
+      return nearbyPosts;
+    }
+    
+    // Use SQLite for web fallback
     const database = await openDatabase();
     
     const result = await database.getAllAsync(
