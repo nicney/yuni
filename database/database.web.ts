@@ -21,7 +21,7 @@ export const initDatabase = async (): Promise<void> => {
       messagingSenderId: "1030467310392",
       appId: "1:1030467310392:web:47906f52c5e10ce8c6a7cd",
       measurementId: "G-FR1B9F8YVL",
-      databaseURL: "https://plat-6c5a7-default-rtdb.asia-southeast1.firebaseio.com/"
+      databaseURL: "https://plat-6c5a7-default-rtdb.asia-southeast1.firebasedatabase.app/"
     };
     
     const app = initializeApp(firebaseConfig);
