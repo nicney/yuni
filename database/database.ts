@@ -129,26 +129,27 @@ export const addPost = async (postData: CreatePostData): Promise<number> => {
         newPost.image_uri = postData.image_uri;
       }
 
-      // Save to Firebase first, then AsyncStorage
+      // Save to localStorage for immediate display (same as web)
       try {
+        // Use localStorage for mobile (same as web)
+        const postsJson = localStorage.getItem('yuni_posts');
+        const posts: any[] = postsJson ? JSON.parse(postsJson) : [];
+        posts.push(newPost);
+        localStorage.setItem('yuni_posts', JSON.stringify(posts));
+        console.log('Post saved to localStorage from mobile:', newPost);
+        
+        // Also try to save to Firebase for sync
         if (firebaseDb) {
           const postsRef = ref(firebaseDb, 'posts');
           const newPostRef = push(postsRef);
           newPost.id = newPostRef.key || newPost.id;
           await set(newPostRef, newPost);
-          console.log('Post added successfully to Firebase from mobile:', newPost);
+          console.log('Post also saved to Firebase for sync');
         }
         
-        // Also save to AsyncStorage for immediate display
-        const { AsyncStorage } = await import('@react-native-async-storage/async-storage');
-        const postsJson = await AsyncStorage.getItem('yuni_posts');
-        const posts: any[] = postsJson ? JSON.parse(postsJson) : [];
-        posts.push(newPost);
-        await AsyncStorage.setItem('yuni_posts', JSON.stringify(posts));
-        console.log('Post also saved to AsyncStorage for immediate display');
         return Date.now();
       } catch (error) {
-        console.log('Firebase/AsyncStorage failed, using SQLite fallback:', error);
+        console.log('localStorage/Firebase failed, using SQLite fallback:', error);
         // Fall through to SQLite
       }
     }
@@ -178,20 +179,19 @@ export const getPostsInRadius = async (
   radiusMeters: number = 100
 ): Promise<any[]> => {
   try {
-    // Use AsyncStorage for mobile (temporary solution for testing)
+    // Use localStorage for mobile (same as web)
     if (!isWeb) {
       try {
-        const { AsyncStorage } = await import('@react-native-async-storage/async-storage');
-        const postsJson = await AsyncStorage.getItem('yuni_posts');
+        const postsJson = localStorage.getItem('yuni_posts');
         
         if (!postsJson) {
-          console.log('No posts found in AsyncStorage from mobile');
+          console.log('No posts found in localStorage from mobile');
           return [];
         }
 
         const posts: any[] = JSON.parse(postsJson);
         
-        console.log(`Raw AsyncStorage data:`, posts);
+        console.log(`Raw localStorage data from mobile:`, posts);
         
         const now = new Date();
         const validPosts = posts.filter(post => {
@@ -213,10 +213,10 @@ export const getPostsInRadius = async (
           return distance <= radiusMeters;
         });
 
-        console.log(`Found ${nearbyPosts.length} posts within ${radiusMeters}m radius from AsyncStorage (mobile)`);
+        console.log(`Found ${nearbyPosts.length} posts within ${radiusMeters}m radius from localStorage (mobile)`);
         return nearbyPosts;
       } catch (error) {
-        console.log('AsyncStorage failed, using SQLite fallback:', error);
+        console.log('localStorage failed, using SQLite fallback:', error);
         // Fall through to SQLite
       }
     }
