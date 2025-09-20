@@ -163,6 +163,16 @@ export const cleanupExpiredPosts = async (): Promise<number> => {
   }
 };
 
+// Delete expired posts (alias for cleanupExpiredPosts)
+export const deleteExpiredPosts = async (): Promise<void> => {
+  try {
+    await cleanupExpiredPosts();
+  } catch (error) {
+    console.error('Error deleting expired posts:', error);
+    throw createAppError(ErrorCode.DATABASE_ERROR, 'Failed to delete expired posts');
+  }
+};
+
 // User management functions (simplified for web)
 export const addUser = async (userData: CreateUserData): Promise<string> => {
   try {
