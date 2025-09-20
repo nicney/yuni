@@ -77,13 +77,21 @@ export const addPost = async (postData: CreatePostData): Promise<string> => {
       timestamp: Date.now(),
     };
 
-    // Save to localStorage
+    // Save to Firebase
+    const postsRef = ref(database, 'posts');
+    const newPostRef = push(postsRef);
+    newPost.id = newPostRef.key || '';
+    
+    await set(newPostRef, newPost);
+    console.log('Post added successfully to Firebase:', newPost);
+    
+    // Also save to localStorage for immediate display
     const postsJson = localStorage.getItem('yuni_posts');
     const posts: Post[] = postsJson ? JSON.parse(postsJson) : [];
     posts.push(newPost);
     localStorage.setItem('yuni_posts', JSON.stringify(posts));
-
-    console.log('Post added successfully to localStorage:', newPost);
+    console.log('Post also saved to localStorage for immediate display');
+    
     return newPost.id;
   } catch (error) {
     console.error('Error in addPost:', error);
@@ -100,20 +108,20 @@ export const getPostsInRadius = async (
   try {
     console.log('Loading posts from Firebase with cache...');
     
-    // Check cache first
-    const cacheKey = `posts_cache_${Math.floor(latitude * 100)}_${Math.floor(longitude * 100)}_${radiusMeters}`;
-    const cachedData = localStorage.getItem(cacheKey);
-    const cacheTime = localStorage.getItem(`${cacheKey}_time`);
+    // Skip cache for now to force fresh data
+    // const cacheKey = `posts_cache_${Math.floor(latitude * 100)}_${Math.floor(longitude * 100)}_${radiusMeters}`;
+    // const cachedData = localStorage.getItem(cacheKey);
+    // const cacheTime = localStorage.getItem(`${cacheKey}_time`);
     
-    if (cachedData && cacheTime) {
-      const now = Date.now();
-      const cacheAge = now - parseInt(cacheTime);
-      if (cacheAge < 30000) { // 30 seconds cache
-        console.log('Using cached posts data');
-        const posts: Post[] = JSON.parse(cachedData);
-        return posts;
-      }
-    }
+    // if (cachedData && cacheTime) {
+    //   const now = Date.now();
+    //   const cacheAge = now - parseInt(cacheTime);
+    //   if (cacheAge < 30000) { // 30 seconds cache
+    //     console.log('Using cached posts data');
+    //     const posts: Post[] = JSON.parse(cachedData);
+    //     return posts;
+    //   }
+    // }
 
     if (!database) {
       throw createAppError(ErrorCode.DATABASE_ERROR, 'Database not initialized');
@@ -151,9 +159,9 @@ export const getPostsInRadius = async (
     const postsInRadius = postsWithDistance.filter(post => post.distance <= radiusMeters);
     postsInRadius.sort((a, b) => a.distance - b.distance);
 
-    // Cache the result
-    localStorage.setItem(cacheKey, JSON.stringify(postsInRadius));
-    localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
+    // Cache the result (disabled for now)
+    // localStorage.setItem(cacheKey, JSON.stringify(postsInRadius));
+    // localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
 
     console.log(`Found ${postsInRadius.length} posts within ${radiusMeters}m radius from Firebase`);
     return postsInRadius;
