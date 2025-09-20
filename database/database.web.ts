@@ -65,17 +65,21 @@ export const addPost = async (postData: CreatePostData): Promise<string> => {
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 1); // หมดอายุใน 1 นาที
 
-    const newPost: Post = {
+    const newPost: any = {
       id: Date.now().toString(), // Simple ID generation
       username: postData.username,
       content: postData.content,
-      image_uri: postData.image_uri || undefined,
       latitude: postData.latitude,
       longitude: postData.longitude,
       created_at: new Date().toISOString(),
       expires_at: expiresAt.toISOString(),
       timestamp: Date.now(),
     };
+
+    // Only add image_uri if it exists
+    if (postData.image_uri) {
+      newPost.image_uri = postData.image_uri;
+    }
 
     // Save to Firebase
     const postsRef = ref(database, 'posts');
