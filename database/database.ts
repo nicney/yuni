@@ -4,12 +4,26 @@ import type { Post, CreatePostData, User, CreateUserData, QueryResult, AppError 
 import { ErrorCode } from '../types';
 import { createAppError, handleDatabaseError } from '../services/errorService';
 import { validateCreatePostData, validateCreateUserData } from '../services/validationService';
+import { getDatabase, ref, push, set, get, remove } from 'firebase/database';
 
 // Web fallback using localStorage
 const isWeb = Platform.OS === 'web';
 
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCjvf37Hq5Hnfe9EZx4yGLwJreWA70RP84",
+  authDomain: "plat-6c5a7.firebaseapp.com",
+  projectId: "plat-6c5a7",
+  storageBucket: "plat-6c5a7.firebasestorage.app",
+  messagingSenderId: "1030467310392",
+  appId: "1:1030467310392:web:47906f52c5e10ce8c6a7cd",
+  measurementId: "G-FR1B9F8YVL",
+  databaseURL: "https://plat-6c5a7-default-rtdb.asia-southeast1.firebasedatabase.app/"
+};
+
 // สร้าง database connection
 let db: SQLite.SQLiteDatabase | null = null;
+let firebaseDb: any = null;
 
 // ฟังก์ชันสำหรับเปิด database
 const openDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
@@ -27,6 +41,15 @@ const openDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
 // ฟังก์ชันสำหรับสร้างตาราง
 export const initDatabase = async (): Promise<void> => {
   try {
+    // Initialize Firebase for mobile
+    if (!isWeb) {
+      const { initializeApp } = await import('firebase/app');
+      const app = initializeApp(firebaseConfig);
+      firebaseDb = getDatabase(app);
+      console.log('Mobile database initialized with Firebase');
+      return;
+    }
+    
     const database = await openDatabase();
     
     // สร้างตาราง posts
@@ -85,6 +108,36 @@ export const addPost = async (postData: CreatePostData): Promise<number> => {
       );
     }
 
+    // Use Firebase for mobile
+    if (!isWeb && firebaseDb) {
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 1); // หมดอายุใน 1 นาที
+
+      const newPost: any = {
+        username: postData.username,
+        content: postData.content,
+        latitude: postData.latitude,
+        longitude: postData.longitude,
+        created_at: new Date().toISOString(),
+        expires_at: expiresAt.toISOString(),
+        timestamp: Date.now(),
+      };
+
+      // Only add image_uri if it exists
+      if (postData.image_uri) {
+        newPost.image_uri = postData.image_uri;
+      }
+
+      const postsRef = ref(firebaseDb, 'posts');
+      const newPostRef = push(postsRef);
+      newPost.id = newPostRef.key || '';
+      
+      await set(newPostRef, newPost);
+      console.log('Post added successfully to Firebase from mobile:', newPost);
+      return Date.now(); // Return timestamp as ID
+    }
+
+    // Use SQLite for web fallback
     const database = await openDatabase();
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 1); // หมดอายุใน 1 นาที
