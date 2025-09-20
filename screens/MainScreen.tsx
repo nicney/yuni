@@ -71,25 +71,36 @@ export default function MainScreen({ navigation }: Props) {
 
   const loadPosts = async () => {
     try {
+      console.log('Starting to load posts...');
       const location = await getCurrentLocation();
       if (!location) {
         console.log('No location available');
         return;
       }
 
+      console.log('Location obtained, deleting expired posts...');
       // Delete expired posts first
       await deleteExpiredPosts();
 
-      // Get posts in radius
-      const postsInRadius = await getPostsInRadius(
-        location.coords.latitude,
-        location.coords.longitude,
-        selectedRange.value // Use selected range
-      );
+      console.log('Getting posts in radius...');
+      // Get posts in radius with timeout
+      const postsInRadius = await Promise.race([
+        getPostsInRadius(
+          location.coords.latitude,
+          location.coords.longitude,
+          selectedRange.value // Use selected range
+        ),
+        new Promise<Post[]>((_, reject) => 
+          setTimeout(() => reject(new Error('Load posts timeout')), 3000)
+        )
+      ]);
 
       setPosts(postsInRadius);
+      console.log(`Successfully loaded ${postsInRadius.length} posts`);
     } catch (error) {
       console.error('Error loading posts:', error);
+      // Set empty posts array on error to stop loading
+      setPosts([]);
     }
   };
 

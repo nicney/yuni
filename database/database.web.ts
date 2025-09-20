@@ -107,11 +107,11 @@ export const getPostsInRadius = async (
 
     const postsRef = ref(database, 'posts');
     
-    // Use get with timeout for faster response
+    // Use get with shorter timeout for faster response
     const snapshot = await Promise.race([
       get(postsRef),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Firebase timeout')), 5000)
+        setTimeout(() => reject(new Error('Firebase timeout')), 2000)
       )
     ]) as any;
     
@@ -141,8 +141,34 @@ export const getPostsInRadius = async (
     return postsInRadius;
   } catch (error) {
     console.error('Error in getPostsInRadius:', error);
-    // Return empty array if Firebase is slow or fails
-    console.log('Firebase timeout or error, returning empty posts array');
+    console.log('Firebase timeout or error, falling back to localStorage');
+    
+    // Fallback to localStorage if Firebase fails
+    try {
+      const postsJson = localStorage.getItem('yuni_posts');
+      if (postsJson) {
+        const posts: Post[] = JSON.parse(postsJson);
+        const now = new Date();
+        const validPosts = posts.filter(post => {
+          const expiresAt = new Date(post.expires_at);
+          return expiresAt > now;
+        });
+
+        const postsWithDistance = validPosts.map(post => {
+          const distance = calculateDistance(latitude, longitude, post.latitude, post.longitude);
+          return { ...post, distance };
+        });
+
+        const postsInRadius = postsWithDistance.filter(post => post.distance <= radiusMeters);
+        postsInRadius.sort((a, b) => a.distance - b.distance);
+
+        console.log(`Found ${postsInRadius.length} posts from localStorage fallback`);
+        return postsInRadius;
+      }
+    } catch (fallbackError) {
+      console.error('Error in localStorage fallback:', fallbackError);
+    }
+    
     return [];
   }
 };
