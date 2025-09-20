@@ -4,7 +4,7 @@ import type { Post, CreatePostData, User, CreateUserData, QueryResult, AppError 
 import { ErrorCode } from '../types';
 import { createAppError, handleDatabaseError } from '../services/errorService';
 import { validateCreatePostData, validateCreateUserData } from '../services/validationService';
-import { getDatabase, ref, push, set, get, remove } from 'firebase/database';
+import { getDatabase, ref, push, set, get, remove, onValue, off } from 'firebase/database';
 
 // Web fallback using localStorage
 const isWeb = Platform.OS === 'web';
@@ -178,25 +178,28 @@ export const getPostsInRadius = async (
   radiusMeters: number = 100
 ): Promise<any[]> => {
   try {
-    // Use Firebase for mobile
-    if (!isWeb && firebaseDb) {
+    // Use AsyncStorage for mobile (temporary solution for testing)
+    if (!isWeb) {
       try {
-        const postsRef = ref(firebaseDb, 'posts');
-        const snapshot = await get(postsRef);
+        const { AsyncStorage } = await import('@react-native-async-storage/async-storage');
+        const postsJson = await AsyncStorage.getItem('yuni_posts');
         
-        if (!snapshot.exists()) {
-          console.log('No posts found in Firebase from mobile');
+        if (!postsJson) {
+          console.log('No posts found in AsyncStorage from mobile');
           return [];
         }
 
-        const postsData = snapshot.val();
-        const posts: any[] = Object.values(postsData);
+        const posts: any[] = JSON.parse(postsJson);
+        
+        console.log(`Raw AsyncStorage data:`, posts);
         
         const now = new Date();
         const validPosts = posts.filter(post => {
           const expiresAt = new Date(post.expires_at);
           return expiresAt > now;
         });
+
+        console.log(`Valid posts after expiration filter:`, validPosts);
 
         // กรองโพสต์ที่อยู่ในรัศมี
         const nearbyPosts = validPosts.filter((post: any) => {
@@ -206,13 +209,14 @@ export const getPostsInRadius = async (
             post.latitude,
             post.longitude
           );
+          console.log(`Post ${post.id}: distance=${distance}m, radius=${radiusMeters}m`);
           return distance <= radiusMeters;
         });
 
-        console.log(`Found ${nearbyPosts.length} posts within ${radiusMeters}m radius from Firebase (mobile)`);
+        console.log(`Found ${nearbyPosts.length} posts within ${radiusMeters}m radius from AsyncStorage (mobile)`);
         return nearbyPosts;
       } catch (error) {
-        console.log('Firebase failed, using SQLite fallback:', error);
+        console.log('AsyncStorage failed, using SQLite fallback:', error);
         // Fall through to SQLite
       }
     }
