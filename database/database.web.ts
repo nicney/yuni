@@ -1,24 +1,32 @@
-// Web-specific database implementation using localStorage
+// Web-specific database implementation using Firebase Realtime Database
 import type { Post, CreatePostData, User, CreateUserData, QueryResult, AppError } from '../types';
 import { ErrorCode } from '../types';
 import { createAppError } from '../services/errorService';
 import { validateCreatePostData, validateCreateUserData } from '../services/validationService';
+import { getDatabase, ref, push, set, get, remove, onValue, off } from 'firebase/database';
 
-// Web storage keys
-const POSTS_KEY = 'yuni_posts';
-const USERS_KEY = 'yuni_users';
+// Firebase database reference
+let database: any = null;
 
 // Initialize database (web version)
 export const initDatabase = async (): Promise<void> => {
   try {
-    // Initialize localStorage if not exists
-    if (!localStorage.getItem(POSTS_KEY)) {
-      localStorage.setItem(POSTS_KEY, JSON.stringify([]));
-    }
-    if (!localStorage.getItem(USERS_KEY)) {
-      localStorage.setItem(USERS_KEY, JSON.stringify([]));
-    }
-    console.log('Web database initialized successfully');
+    // Import Firebase app and get database
+    const { initializeApp } = await import('firebase/app');
+    const firebaseConfig = {
+      apiKey: "AIzaSyCjvf37Hq5Hnfe9EZx4yGLwJreWA70RP84",
+      authDomain: "plat-6c5a7.firebaseapp.com",
+      projectId: "plat-6c5a7",
+      storageBucket: "plat-6c5a7.firebasestorage.app",
+      messagingSenderId: "1030467310392",
+      appId: "1:1030467310392:web:47906f52c5e10ce8c6a7cd",
+      measurementId: "G-FR1B9F8YVL",
+      databaseURL: "https://plat-6c5a7-default-rtdb.asia-southeast1.firebaseio.com/"
+    };
+    
+    const app = initializeApp(firebaseConfig);
+    database = getDatabase(app);
+    console.log('Web database initialized successfully with Firebase');
   } catch (error) {
     console.error('Error initializing web database:', error);
     throw createAppError(ErrorCode.DATABASE_ERROR, 'Failed to initialize database');
@@ -54,12 +62,15 @@ export const addPost = async (postData: CreatePostData): Promise<string> => {
       throw createAppError(ErrorCode.VALIDATION_ERROR, validation.errors[0]?.message || 'Invalid post data');
     }
 
-    const posts = getPosts();
+    if (!database) {
+      throw createAppError(ErrorCode.DATABASE_ERROR, 'Database not initialized');
+    }
+
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 1); // หมดอายุใน 1 นาที
 
     const newPost: Post = {
-      id: Date.now().toString(), // Simple ID generation
+      id: '', // Will be set by Firebase
       username: postData.username,
       content: postData.content,
       image_uri: postData.image_uri || undefined,
@@ -70,10 +81,12 @@ export const addPost = async (postData: CreatePostData): Promise<string> => {
       timestamp: Date.now(),
     };
 
-    posts.push(newPost);
-    savePosts(posts);
-
-    console.log('Post added successfully:', newPost);
+    const postsRef = ref(database, 'posts');
+    const newPostRef = push(postsRef);
+    newPost.id = newPostRef.key || '';
+    
+    await set(newPostRef, newPost);
+    console.log('Post added successfully to Firebase:', newPost);
     return newPost.id;
   } catch (error) {
     console.error('Error in addPost:', error);
@@ -88,7 +101,21 @@ export const getPostsInRadius = async (
   radiusMeters: number
 ): Promise<Post[]> => {
   try {
-    const posts = getPosts();
+    if (!database) {
+      throw createAppError(ErrorCode.DATABASE_ERROR, 'Database not initialized');
+    }
+
+    const postsRef = ref(database, 'posts');
+    const snapshot = await get(postsRef);
+    
+    if (!snapshot.exists()) {
+      console.log('No posts found in Firebase');
+      return [];
+    }
+
+    const postsData = snapshot.val();
+    const posts: Post[] = Object.values(postsData);
+    
     const now = new Date();
     const validPosts = posts.filter(post => {
       const expiresAt = new Date(post.expires_at);
@@ -103,7 +130,7 @@ export const getPostsInRadius = async (
     const postsInRadius = postsWithDistance.filter(post => post.distance <= radiusMeters);
     postsInRadius.sort((a, b) => a.distance - b.distance);
 
-    console.log(`Found ${postsInRadius.length} posts within ${radiusMeters}m radius`);
+    console.log(`Found ${postsInRadius.length} posts within ${radiusMeters}m radius from Firebase`);
     return postsInRadius;
   } catch (error) {
     console.error('Error in getPostsInRadius:', error);
@@ -114,10 +141,13 @@ export const getPostsInRadius = async (
 // Delete a post
 export const deletePost = async (postId: string): Promise<void> => {
   try {
-    const posts = getPosts();
-    const filteredPosts = posts.filter(post => post.id !== postId);
-    savePosts(filteredPosts);
-    console.log('Post deleted successfully');
+    if (!database) {
+      throw createAppError(ErrorCode.DATABASE_ERROR, 'Database not initialized');
+    }
+
+    const postRef = ref(database, `posts/${postId}`);
+    await remove(postRef);
+    console.log('Post deleted successfully from Firebase');
   } catch (error) {
     console.error('Error deleting post:', error);
     throw createAppError(ErrorCode.DATABASE_ERROR, 'Failed to delete post');
@@ -166,7 +196,34 @@ export const cleanupExpiredPosts = async (): Promise<number> => {
 // Delete expired posts (alias for cleanupExpiredPosts)
 export const deleteExpiredPosts = async (): Promise<void> => {
   try {
-    await cleanupExpiredPosts();
+    if (!database) {
+      throw createAppError(ErrorCode.DATABASE_ERROR, 'Database not initialized');
+    }
+
+    const postsRef = ref(database, 'posts');
+    const snapshot = await get(postsRef);
+    
+    if (!snapshot.exists()) {
+      console.log('No posts found in Firebase');
+      return;
+    }
+
+    const postsData = snapshot.val();
+    const now = new Date();
+    let deletedCount = 0;
+
+    for (const [postId, post] of Object.entries(postsData)) {
+      const postData = post as Post;
+      const expiresAt = new Date(postData.expires_at);
+      
+      if (expiresAt <= now) {
+        const postRef = ref(database, `posts/${postId}`);
+        await remove(postRef);
+        deletedCount++;
+      }
+    }
+
+    console.log(`Deleted ${deletedCount} expired posts from Firebase`);
   } catch (error) {
     console.error('Error deleting expired posts:', error);
     throw createAppError(ErrorCode.DATABASE_ERROR, 'Failed to delete expired posts');
