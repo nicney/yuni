@@ -106,7 +106,14 @@ export const getPostsInRadius = async (
     }
 
     const postsRef = ref(database, 'posts');
-    const snapshot = await get(postsRef);
+    
+    // Use get with timeout for faster response
+    const snapshot = await Promise.race([
+      get(postsRef),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Firebase timeout')), 5000)
+      )
+    ]) as any;
     
     if (!snapshot.exists()) {
       console.log('No posts found in Firebase');
@@ -134,7 +141,9 @@ export const getPostsInRadius = async (
     return postsInRadius;
   } catch (error) {
     console.error('Error in getPostsInRadius:', error);
-    throw createAppError(ErrorCode.DATABASE_ERROR, 'Failed to get posts in radius');
+    // Return empty array if Firebase is slow or fails
+    console.log('Firebase timeout or error, returning empty posts array');
+    return [];
   }
 };
 
