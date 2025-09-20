@@ -3,12 +3,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { initDatabase } from './database/database';
-import { initDatabase as initWebDatabase } from './database/database.web';
 import { requestLocationPermission } from './services/locationService';
 import { hasUserData, isFirstLaunch } from './services/storageService';
 import { getErrorMessage } from './services/errorService';
-import { initSentryWeb, initSentryMobile } from './src/services/sentryService';
-import { initWebVitals } from './src/services/webVitalsService';
+import { initSentryMobile } from './src/services/sentryService';
 import UsernameSetupScreen from './screens/UsernameSetupScreen';
 import MainScreen from './screens/MainScreen';
 import PostCreationScreen from './screens/PostCreationScreen';
@@ -32,20 +30,11 @@ export default function App() {
       setError(null);
 
       // 0. Initialize monitoring
-      if (Platform.OS === 'web') {
-        initSentryWeb();
-        initWebVitals();
-      } else {
-        initSentryMobile();
-      }
+      initSentryMobile();
 
       // 1. เริ่มต้น database
       console.log('Initializing database...');
-      if (Platform.OS === 'web') {
-        await initWebDatabase();
-      } else {
-        await initDatabase();
-      }
+      await initDatabase();
 
       // 2. ขอ permission location
       console.log('Requesting location permission...');
