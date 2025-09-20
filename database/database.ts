@@ -108,12 +108,13 @@ export const addPost = async (postData: CreatePostData): Promise<number> => {
       );
     }
 
-    // Use Firebase for mobile
-    if (!isWeb && firebaseDb) {
+    // Use localStorage for mobile (temporary solution)
+    if (!isWeb) {
       const expiresAt = new Date();
       expiresAt.setMinutes(expiresAt.getMinutes() + 1); // หมดอายุใน 1 นาที
 
       const newPost: any = {
+        id: Date.now().toString(),
         username: postData.username,
         content: postData.content,
         latitude: postData.latitude,
@@ -128,13 +129,19 @@ export const addPost = async (postData: CreatePostData): Promise<number> => {
         newPost.image_uri = postData.image_uri;
       }
 
-      const postsRef = ref(firebaseDb, 'posts');
-      const newPostRef = push(postsRef);
-      newPost.id = newPostRef.key || '';
-      
-      await set(newPostRef, newPost);
-      console.log('Post added successfully to Firebase from mobile:', newPost);
-      return Date.now(); // Return timestamp as ID
+      // Save to AsyncStorage (mobile equivalent of localStorage)
+      try {
+        const { AsyncStorage } = await import('@react-native-async-storage/async-storage');
+        const postsJson = await AsyncStorage.getItem('yuni_posts');
+        const posts: any[] = postsJson ? JSON.parse(postsJson) : [];
+        posts.push(newPost);
+        await AsyncStorage.setItem('yuni_posts', JSON.stringify(posts));
+        console.log('Post added successfully to AsyncStorage from mobile:', newPost);
+        return Date.now();
+      } catch (error) {
+        console.log('AsyncStorage failed, using SQLite fallback:', error);
+        // Fall through to SQLite
+      }
     }
 
     // Use SQLite for web fallback
@@ -164,36 +171,41 @@ export const getPostsInRadius = async (
   try {
     // Use Firebase for mobile
     if (!isWeb && firebaseDb) {
-      const postsRef = ref(firebaseDb, 'posts');
-      const snapshot = await get(postsRef);
-      
-      if (!snapshot.exists()) {
-        console.log('No posts found in Firebase from mobile');
-        return [];
+      try {
+        const postsRef = ref(firebaseDb, 'posts');
+        const snapshot = await get(postsRef);
+        
+        if (!snapshot.exists()) {
+          console.log('No posts found in Firebase from mobile');
+          return [];
+        }
+
+        const postsData = snapshot.val();
+        const posts: any[] = Object.values(postsData);
+        
+        const now = new Date();
+        const validPosts = posts.filter(post => {
+          const expiresAt = new Date(post.expires_at);
+          return expiresAt > now;
+        });
+
+        // กรองโพสต์ที่อยู่ในรัศมี
+        const nearbyPosts = validPosts.filter((post: any) => {
+          const distance = calculateDistance(
+            latitude,
+            longitude,
+            post.latitude,
+            post.longitude
+          );
+          return distance <= radiusMeters;
+        });
+
+        console.log(`Found ${nearbyPosts.length} posts within ${radiusMeters}m radius from Firebase (mobile)`);
+        return nearbyPosts;
+      } catch (error) {
+        console.log('Firebase failed, using SQLite fallback:', error);
+        // Fall through to SQLite
       }
-
-      const postsData = snapshot.val();
-      const posts: any[] = Object.values(postsData);
-      
-      const now = new Date();
-      const validPosts = posts.filter(post => {
-        const expiresAt = new Date(post.expires_at);
-        return expiresAt > now;
-      });
-
-      // กรองโพสต์ที่อยู่ในรัศมี
-      const nearbyPosts = validPosts.filter((post: any) => {
-        const distance = calculateDistance(
-          latitude,
-          longitude,
-          post.latitude,
-          post.longitude
-        );
-        return distance <= radiusMeters;
-      });
-
-      console.log(`Found ${nearbyPosts.length} posts within ${radiusMeters}m radius from Firebase (mobile)`);
-      return nearbyPosts;
     }
     
     // Use SQLite for web fallback
