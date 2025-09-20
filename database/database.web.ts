@@ -107,26 +107,46 @@ export const addPost = async (postData: CreatePostData): Promise<string> => {
   }
 };
 
-// Get posts within radius - Use localStorage for sync
+// Get posts within radius - Use Firebase for cross-device sync
 export const getPostsInRadius = async (
   latitude: number,
   longitude: number,
   radiusMeters: number
 ): Promise<Post[]> => {
   try {
-    console.log('Loading posts from localStorage for sync...');
+    console.log('Loading posts from Firebase for cross-device sync...');
     
-    // Use localStorage for immediate sync (same as mobile)
-    const postsJson = localStorage.getItem('yuni_posts');
+    if (!database) {
+      console.log('Database not initialized, using localStorage fallback');
+      // Fallback to localStorage
+      const postsJson = localStorage.getItem('yuni_posts');
+      if (!postsJson) return [];
+      const posts: Post[] = JSON.parse(postsJson);
+      return posts.filter(post => {
+        const distance = calculateDistance(latitude, longitude, post.latitude, post.longitude);
+        return distance <= radiusMeters;
+      });
+    }
+
+    const postsRef = ref(database, 'posts');
     
-    if (!postsJson) {
-      console.log('No posts found in localStorage');
+    // Use get with timeout
+    const snapshot = await Promise.race([
+      get(postsRef),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Firebase timeout')), 3000)
+      )
+    ]) as any;
+    
+    if (!snapshot.exists()) {
+      console.log('No posts found in Firebase');
       return [];
     }
 
-    const posts: Post[] = JSON.parse(postsJson);
+    const postsData = snapshot.val();
+    const posts: Post[] = Object.values(postsData);
     
-    console.log(`Raw localStorage data from web:`, posts);
+    console.log(`Raw Firebase data from web:`, posts);
     
     const now = new Date();
     const validPosts = posts.filter(post => {
@@ -144,7 +164,7 @@ export const getPostsInRadius = async (
     const postsInRadius = postsWithDistance.filter(post => post.distance <= radiusMeters);
     postsInRadius.sort((a, b) => a.distance - b.distance);
 
-    console.log(`Found ${postsInRadius.length} posts within ${radiusMeters}m radius from localStorage`);
+    console.log(`Found ${postsInRadius.length} posts within ${radiusMeters}m radius from Firebase`);
     return postsInRadius;
   } catch (error) {
     console.error('Error in getPostsInRadius:', error);

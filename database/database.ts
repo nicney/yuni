@@ -179,19 +179,28 @@ export const getPostsInRadius = async (
   radiusMeters: number = 100
 ): Promise<any[]> => {
   try {
-    // Use localStorage for mobile (same as web)
-    if (!isWeb) {
+    // Use Firebase for mobile (cross-device sync)
+    if (!isWeb && firebaseDb) {
       try {
-        const postsJson = localStorage.getItem('yuni_posts');
+        const postsRef = ref(firebaseDb, 'posts');
         
-        if (!postsJson) {
-          console.log('No posts found in localStorage from mobile');
+        // Use Promise.race with timeout for get()
+        const snapshot = await Promise.race([
+          get(postsRef),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Firebase timeout')), 3000)
+          )
+        ]) as any;
+        
+        if (!snapshot.exists()) {
+          console.log('No posts found in Firebase from mobile');
           return [];
         }
 
-        const posts: any[] = JSON.parse(postsJson);
+        const postsData = snapshot.val();
+        const posts: any[] = Object.values(postsData);
         
-        console.log(`Raw localStorage data from mobile:`, posts);
+        console.log(`Raw Firebase data from mobile:`, posts);
         
         const now = new Date();
         const validPosts = posts.filter(post => {
@@ -213,10 +222,10 @@ export const getPostsInRadius = async (
           return distance <= radiusMeters;
         });
 
-        console.log(`Found ${nearbyPosts.length} posts within ${radiusMeters}m radius from localStorage (mobile)`);
+        console.log(`Found ${nearbyPosts.length} posts within ${radiusMeters}m radius from Firebase (mobile)`);
         return nearbyPosts;
       } catch (error) {
-        console.log('localStorage failed, using SQLite fallback:', error);
+        console.log('Firebase failed, using SQLite fallback:', error);
         // Fall through to SQLite
       }
     }
