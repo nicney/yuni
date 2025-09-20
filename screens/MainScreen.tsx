@@ -83,7 +83,7 @@ export default function MainScreen({ navigation }: Props) {
       await deleteExpiredPosts();
 
       console.log('Getting posts in radius...');
-      // Get posts in radius with timeout
+      // Get posts in radius with shorter timeout
       const postsInRadius = await Promise.race([
         getPostsInRadius(
           location.coords.latitude,
@@ -91,7 +91,7 @@ export default function MainScreen({ navigation }: Props) {
           selectedRange.value // Use selected range
         ),
         new Promise<Post[]>((_, reject) => 
-          setTimeout(() => reject(new Error('Load posts timeout')), 3000)
+          setTimeout(() => reject(new Error('Load posts timeout')), 1500)
         )
       ]);
 

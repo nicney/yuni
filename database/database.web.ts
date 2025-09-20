@@ -54,7 +54,7 @@ const savePosts = (posts: Post[]): void => {
   }
 };
 
-// Add a new post
+// Add a new post - Use localStorage for speed
 export const addPost = async (postData: CreatePostData): Promise<string> => {
   try {
     const validation = validateCreatePostData(postData);
@@ -62,15 +62,11 @@ export const addPost = async (postData: CreatePostData): Promise<string> => {
       throw createAppError(ErrorCode.VALIDATION_ERROR, validation.errors[0]?.message || 'Invalid post data');
     }
 
-    if (!database) {
-      throw createAppError(ErrorCode.DATABASE_ERROR, 'Database not initialized');
-    }
-
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 1); // หมดอายุใน 1 นาที
 
     const newPost: Post = {
-      id: '', // Will be set by Firebase
+      id: Date.now().toString(), // Simple ID generation
       username: postData.username,
       content: postData.content,
       image_uri: postData.image_uri || undefined,
@@ -81,12 +77,13 @@ export const addPost = async (postData: CreatePostData): Promise<string> => {
       timestamp: Date.now(),
     };
 
-    const postsRef = ref(database, 'posts');
-    const newPostRef = push(postsRef);
-    newPost.id = newPostRef.key || '';
-    
-    await set(newPostRef, newPost);
-    console.log('Post added successfully to Firebase:', newPost);
+    // Save to localStorage
+    const postsJson = localStorage.getItem('yuni_posts');
+    const posts: Post[] = postsJson ? JSON.parse(postsJson) : [];
+    posts.push(newPost);
+    localStorage.setItem('yuni_posts', JSON.stringify(posts));
+
+    console.log('Post added successfully to localStorage:', newPost);
     return newPost.id;
   } catch (error) {
     console.error('Error in addPost:', error);
@@ -94,24 +91,41 @@ export const addPost = async (postData: CreatePostData): Promise<string> => {
   }
 };
 
-// Get posts within radius
+// Get posts within radius - Optimized Firebase with cache
 export const getPostsInRadius = async (
   latitude: number,
   longitude: number,
   radiusMeters: number
 ): Promise<Post[]> => {
   try {
+    console.log('Loading posts from Firebase with cache...');
+    
+    // Check cache first
+    const cacheKey = `posts_cache_${Math.floor(latitude * 100)}_${Math.floor(longitude * 100)}_${radiusMeters}`;
+    const cachedData = localStorage.getItem(cacheKey);
+    const cacheTime = localStorage.getItem(`${cacheKey}_time`);
+    
+    if (cachedData && cacheTime) {
+      const now = Date.now();
+      const cacheAge = now - parseInt(cacheTime);
+      if (cacheAge < 30000) { // 30 seconds cache
+        console.log('Using cached posts data');
+        const posts: Post[] = JSON.parse(cachedData);
+        return posts;
+      }
+    }
+
     if (!database) {
       throw createAppError(ErrorCode.DATABASE_ERROR, 'Database not initialized');
     }
 
     const postsRef = ref(database, 'posts');
     
-    // Use get with shorter timeout for faster response
+    // Use get with very short timeout
     const snapshot = await Promise.race([
       get(postsRef),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Firebase timeout')), 2000)
+        setTimeout(() => reject(new Error('Firebase timeout')), 1000)
       )
     ]) as any;
     
@@ -137,36 +151,21 @@ export const getPostsInRadius = async (
     const postsInRadius = postsWithDistance.filter(post => post.distance <= radiusMeters);
     postsInRadius.sort((a, b) => a.distance - b.distance);
 
+    // Cache the result
+    localStorage.setItem(cacheKey, JSON.stringify(postsInRadius));
+    localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
+
     console.log(`Found ${postsInRadius.length} posts within ${radiusMeters}m radius from Firebase`);
     return postsInRadius;
   } catch (error) {
     console.error('Error in getPostsInRadius:', error);
-    console.log('Firebase timeout or error, falling back to localStorage');
     
-    // Fallback to localStorage if Firebase fails
-    try {
-      const postsJson = localStorage.getItem('yuni_posts');
-      if (postsJson) {
-        const posts: Post[] = JSON.parse(postsJson);
-        const now = new Date();
-        const validPosts = posts.filter(post => {
-          const expiresAt = new Date(post.expires_at);
-          return expiresAt > now;
-        });
-
-        const postsWithDistance = validPosts.map(post => {
-          const distance = calculateDistance(latitude, longitude, post.latitude, post.longitude);
-          return { ...post, distance };
-        });
-
-        const postsInRadius = postsWithDistance.filter(post => post.distance <= radiusMeters);
-        postsInRadius.sort((a, b) => a.distance - b.distance);
-
-        console.log(`Found ${postsInRadius.length} posts from localStorage fallback`);
-        return postsInRadius;
-      }
-    } catch (fallbackError) {
-      console.error('Error in localStorage fallback:', fallbackError);
+    // Fallback to cache if available
+    const cacheKey = `posts_cache_${Math.floor(latitude * 100)}_${Math.floor(longitude * 100)}_${radiusMeters}`;
+    const cachedData = localStorage.getItem(cacheKey);
+    if (cachedData) {
+      console.log('Using fallback cached data');
+      return JSON.parse(cachedData);
     }
     
     return [];
