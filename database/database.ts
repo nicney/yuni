@@ -111,7 +111,7 @@ export const addPost = async (postData: CreatePostData): Promise<number> => {
     // Use localStorage for mobile (temporary solution)
     if (!isWeb) {
       const expiresAt = new Date();
-      expiresAt.setMinutes(expiresAt.getMinutes() + 1); // หมดอายุใน 1 นาที
+      expiresAt.setHours(expiresAt.getHours() + 24); // หมดอายุใน 24 ชั่วโมง
 
       const newPost: any = {
         id: Date.now().toString(),
@@ -156,7 +156,7 @@ export const addPost = async (postData: CreatePostData): Promise<number> => {
     // Use SQLite for web fallback
     const database = await openDatabase();
     const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 1); // หมดอายุใน 1 นาที
+    expiresAt.setHours(expiresAt.getHours() + 24); // หมดอายุใน 24 ชั่วโมง
 
     const result = await database.runAsync(
       `INSERT INTO posts (username, content, image_uri, latitude, longitude, expires_at) 

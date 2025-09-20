@@ -63,7 +63,7 @@ export const addPost = async (postData: CreatePostData): Promise<string> => {
     }
 
     const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 1); // หมดอายุใน 1 นาที
+    expiresAt.setHours(expiresAt.getHours() + 24); // หมดอายุใน 24 ชั่วโมง
 
     const newPost: any = {
       id: Date.now().toString(), // Simple ID generation
@@ -81,20 +81,24 @@ export const addPost = async (postData: CreatePostData): Promise<string> => {
       newPost.image_uri = postData.image_uri;
     }
 
-    // Save to Firebase
-    const postsRef = ref(database, 'posts');
-    const newPostRef = push(postsRef);
-    newPost.id = newPostRef.key || '';
-    
-    await set(newPostRef, newPost);
-    console.log('Post added successfully to Firebase:', newPost);
-    
-    // Also save to localStorage for immediate display
+    // Save to localStorage for immediate display
     const postsJson = localStorage.getItem('yuni_posts');
     const posts: Post[] = postsJson ? JSON.parse(postsJson) : [];
     posts.push(newPost);
     localStorage.setItem('yuni_posts', JSON.stringify(posts));
-    console.log('Post also saved to localStorage for immediate display');
+    console.log('Post saved to localStorage:', newPost);
+    
+    // Try to save to Firebase (but don't fail if it doesn't work)
+    try {
+      const postsRef = ref(database, 'posts');
+      const newPostRef = push(postsRef);
+      newPost.id = newPostRef.key || '';
+      
+      await set(newPostRef, newPost);
+      console.log('Post also saved to Firebase:', newPost);
+    } catch (firebaseError) {
+      console.log('Firebase save failed, using localStorage only:', firebaseError);
+    }
     
     return newPost.id;
   } catch (error) {
