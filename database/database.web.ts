@@ -158,7 +158,12 @@ export const getPostsInRadius = async (
 
     const postsWithDistance = validPosts.map(post => {
       const distance = calculateDistance(latitude, longitude, post.latitude, post.longitude);
-      return { ...post, distance };
+      return { 
+        ...post, 
+        distance,
+        username: post.username || 'Unknown',
+        timestamp: post.timestamp || Date.now()
+      };
     });
 
     const postsInRadius = postsWithDistance.filter(post => post.distance <= radiusMeters);
