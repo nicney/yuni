@@ -129,17 +129,26 @@ export const addPost = async (postData: CreatePostData): Promise<number> => {
         newPost.image_uri = postData.image_uri;
       }
 
-      // Save to AsyncStorage (mobile equivalent of localStorage)
+      // Save to Firebase first, then AsyncStorage
       try {
+        if (firebaseDb) {
+          const postsRef = ref(firebaseDb, 'posts');
+          const newPostRef = push(postsRef);
+          newPost.id = newPostRef.key || newPost.id;
+          await set(newPostRef, newPost);
+          console.log('Post added successfully to Firebase from mobile:', newPost);
+        }
+        
+        // Also save to AsyncStorage for immediate display
         const { AsyncStorage } = await import('@react-native-async-storage/async-storage');
         const postsJson = await AsyncStorage.getItem('yuni_posts');
         const posts: any[] = postsJson ? JSON.parse(postsJson) : [];
         posts.push(newPost);
         await AsyncStorage.setItem('yuni_posts', JSON.stringify(posts));
-        console.log('Post added successfully to AsyncStorage from mobile:', newPost);
+        console.log('Post also saved to AsyncStorage for immediate display');
         return Date.now();
       } catch (error) {
-        console.log('AsyncStorage failed, using SQLite fallback:', error);
+        console.log('Firebase/AsyncStorage failed, using SQLite fallback:', error);
         // Fall through to SQLite
       }
     }
